@@ -1,24 +1,38 @@
-import user from '../models/user.mjs'
-import csv from 'csvtojson' 
+import user from '../models/user.mjs';
+import excelToJson from 'convert-excel-to-json';
 
-const importEmployee =  async(req,res)=>{
-    try {
-        let userData=[]
-        csv().fromFile(req.file.path).then(async(res)=>{
-            for(let x=0;x<res.length;x++){
-                userData.push({
-                    name:res[x].name,
-                    email:res[x].email,
-                    address:res[x].address,
-                    mobileNumber:res[x].mobileNumber
-                })
-            }
-            await user.insertMany(userData)
-        })
-        res.send({status:200,success:true,msg:"successfully added"})
-        
-    } catch (error) {
-        res.send({status:200,success:true,msg:error.messaage})
+const importEmployee = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded!' });
     }
-}
-export default {importEmployee}
+    const filePath = req.file.path;
+
+    const excelData = excelToJson({
+      sourceFile: filePath,
+      sheets: [{
+        name: "employeeData",
+        header: {
+          rows: 1
+        },
+        columnToKey: {
+          A: 'name',
+          B: 'email',
+          C: "address",
+          D: 'mobileNumber'
+        }
+      }]
+    });
+
+    const employeeData = excelData.employeeData; 
+
+    await user.insertMany(employeeData);
+
+    res.status(200).json({ message: 'Data uploaded successfully!' });
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    res.status(500).json({ message: 'Server error!' });
+  }
+};
+
+export default { importEmployee };
